@@ -135,8 +135,6 @@ Task namespace is uvmc-solr
 
 ## Known issues ##
 
-  * If you're using php 5.3, you will see a lot of `E_DEPRECATED` errors from the solr php library
-
 ## Improvements ##
 
   * It would be great to manage multiple-servers

@@ -1,0 +1,148 @@
+# uvmcSolrSearchPlugin for symfony 1.2 #
+
+The `umvcSolrSearchPlugin` is a symfony plugin which permits you to index your models inside a solr service.
+This readme assumes that you have already configured your solr service. If you want to learn how to setup a solr service,
+you can read the [official solr tutorial](http://lucene.apache.org/solr/tutorial.html).
+
+As of now, please consider this plugin as an ALPHA release.
+The plugin hasn't been fully tested.
+
+## Installation ##
+
+  1. Check out from svn
+
+        svn co http://svn.symfony-project.org/plugins/uvmcSolrSearchPlugin/trunk uvmcSolrSearchPlugin
+
+  2. Clear your cache
+
+        php symfony cc
+
+## Configuration ##
+
+  1. Configure solr.yml
+
+        all:
+          enabled:          on
+          servers:
+            master:
+              host:         localhost
+              port:         8983
+              path:         "/solr"
+
+  2. Configure your solr installation to enable php serialiazed array writers
+
+  In `your/install/of/solr/conf/solrconfig.xml`, uncomment those lines
+
+        <queryResponseWriter name="php" class="org.apache.solr.request.PHPResponseWriter"/>
+        <queryResponseWriter name="phps" class="org.apache.solr.request.PHPSerializedResponseWriter"/>
+
+  3. Add to the models you want to index the method `getSolrDocumentFields()`
+
+        public function getSolrDocumentFields()
+        {
+          // keys of this array are fields' name of solr's schema.xml 
+          $fields = array('id'        => $this->getId(),
+                          'foo'       => array('value' => $this->getFoo(),
+                                               'boost' => 1.4);
+
+          foreach($this->getBar() as $bar)
+          {
+            $fields['bar'][] = array('value' => $bar->getFoobar(),
+                                     'boost' => 1.1);
+          }
+
+          return $fields;
+        }
+
+## How to index/delete my model into solr? ##
+
+### In the admin generator
+
+All the models which have the method `getSolrDocumentFields()` will be automagically indexed/deleted upon save/deletion.
+
+### In my code
+
+Each time that you modify an indexable model, you have to notify the event dispatcher with the appropriate event. *Otherwise, it won't work*.
+
+    // ... my super code ...
+    $myModel->save();
+    $dispatcher = sfContext::getInstance()->getEventDispatcher();
+    $dispatcher->notify(new sfEvent($mySubject, 'uvmc_solr.add_document', array('object' => $myModel, 'commit' => true)));
+
+    // ... my ninja code ...
+    $dispatcher = sfContext::getInstance()->getEventDispatcher();
+    $dispatcher->notify(new sfEvent($mySubject, 'uvmc_solr.delete_document', array('object' => $myModel)));
+    $myModel->delete();
+
+## How to search? ##
+
+Let's say you configured solr to only give you back the primary keys of your models.
+
+### Add this in myModelTable.class.php ###
+    
+    public function findByScoredId($ids)
+    {
+      $query = $this->createQuery('p');
+      $query->select('p.*')
+            ->whereIn('p.id', $ids)
+            // Keep scoring
+            // http://groups.google.com/group/symfony-users/browse_thread/thread/92adb0332dfe1065/ee7b8c0d27208368?lnk=gst&q=zend+search+sort#ee7b8c0d27208368
+            ->addSelect('FIELD(p.id,'.implode(', ', $ids).') AS field')
+            ->orderBy('field');
+
+      return $query->execute();
+    }
+
+### ...and this in your action! ###
+
+    // Notify the dispatcher with the search event.
+    // $myQuery is a string containing your query
+    $event = $this->dispatcher->notify(new sfEvent($this, 'uvmc_solr.search', array('query' => $myQuery)));
+    $response = $event->getReturnValue();
+    // solr is configured to give you back a serialized php array
+    $results = unserialize($response->getRawResponse());              
+
+    $primaryKeys = array();
+    foreach($results['response']['docs'] as $doc)
+    {
+      $primaryKeys[] = $doc['id'];
+    }
+
+    if(!empty($primaryKeys))
+    {
+      $this->results = Doctrine::getTable('myModel')->findByScoredId($primaryKeys);       
+    }
+    else
+    {
+      $this->results = null;
+    }
+
+## Available events ##
+
+  * uvmc_solr.search
+  * uvmc_solr.commit
+  * uvmc_solr.add_document
+  * uvmc_solr.update_document
+  * uvmc_solr.delete_document
+
+For more informations about those events and the required/optionnals parameters, please check _uvmcSolrEventListener.class.php_.
+
+## Available tasks ##
+
+Task namespace is uvmc-solr
+
+  * reset-index. Reset the entire index of the solr service.
+
+## Known issues ##
+
+  * If you're using php 5.3, you will see a lot of `E_DEPRECATED` errors from the solr php library
+
+## Improvements ##
+
+  * It would be great to manage multiple-servers
+
+  * Write a task to re-index the entire site. 
+
+## Credits ##
+
+  * Kudos to [Miximum](http://www.miximum.fr/tutos/192-integrer-solr-a-symfony) (french) for the inspiration and code snippets :-)

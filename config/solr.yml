@@ -1,0 +1,12 @@
+# uvmcSolrSearchPlugin configuration file
+# solr.yml can be configured at application level
+# prefix: uvmc_solr_
+#
+#
+
+all:
+  enabled:        on                    
+  service:
+    host:         localhost
+    port:         8983
+    path:         "/solr"

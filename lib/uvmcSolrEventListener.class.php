@@ -8,6 +8,8 @@
  */
 class uvmcSolrEventListener
 {
+  static $documentCollection = array();
+  
   /**
    * listen to symfony's admin generator "admin.save_object" event.
    * If the model has a method 'getSolrDocumentFields', then the model will be indexed
@@ -65,6 +67,39 @@ class uvmcSolrEventListener
     $docFields = $model->getSolrDocumentFields();
     $solr = uvmcSolrServicesManager::getInstance()->getService();
     $solr->deleteById($docFields['id']);
+  }
+
+  /**
+   * Listen to uvmc_solr.add_document_to_collection
+   * Add a document to location collection but do not add it to solr
+   * 
+   * Parameters:
+   *   - object (object, required)
+   *     The object to delete from index.
+   *
+   * @param sfEvent $event 
+   */
+  static function listenToAddDocumentToCollection(sfEvent $event)
+  {
+    $model = $event['object'];
+
+    $docFields = $model->getSolrDocumentFields();
+    $doc = uvmcSolrEventListener::transformArrayToSolrDocument($docFields);
+
+    self::$documentCollection[] = $doc;
+  }
+
+  /**
+   * Listen to uvmc_solr.add_collection
+   * Add the document collection to solr and resets it.
+   *
+   * @param sfEvent $event
+   */
+  static function listenToAddCollection(sfEvent $event)
+  {
+    $solr = uvmcSolrServicesManager::getInstance()->getService();
+    $solr->addDocuments(self::$documentCollection);
+    self::$documentCollection = array();
   }
 
 

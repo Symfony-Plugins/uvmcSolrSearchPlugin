@@ -38,5 +38,7 @@ class uvmcSolrSearchPluginConfiguration extends sfPluginConfiguration
     $this->dispatcher->connect('uvmc_solr.add_document', array('uvmcSolrEventListener', 'listenToAddDocument'));
     $this->dispatcher->connect('uvmc_solr.update_document', array('uvmcSolrEventListener', 'listenToAddDocument'));
     $this->dispatcher->connect('uvmc_solr.delete_document', array('uvmcSolrEventListener', 'listenToDeleteDocument'));
+    $this->dispatcher->connect('uvmc_solr.add_document_to_collection', array('uvmcSolrEventListener', 'listenToAddDocumentToCollection'));
+    $this->dispatcher->connect('uvmc_solr.add_collection', array('uvmcSolrEventListener', 'listenToAddCollection'));
   }
 }
